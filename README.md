@@ -14,6 +14,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/%E2%8F%B3%20Hosted%20demo%20coming%20soon-7C3AED?style=for-the-badge&labelColor=07091a" alt="Hosted demo coming soon"/>
   &nbsp;
+  <a href="https://share.streamlit.io/deploy?repository=nanettetada%2Fdiabetes-risk-mlops&branch=main&mainModule=app%2Fstreamlit_app.py">
+    <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Deploy%20your%20own-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="One-click deploy to Streamlit Cloud"/>
+  </a>
+  &nbsp;
   <a href="#%EF%B8%8F-running-it-yourself">
     <img src="https://img.shields.io/badge/%E2%96%B6%20Run%20it%20locally%20in%202%20min-22D3EE?style=for-the-badge&logo=python&logoColor=white&labelColor=07091a" alt="Run locally"/>
   </a>
@@ -22,7 +26,7 @@
     <img src="https://img.shields.io/badge/%F0%9F%93%B8%20See%20screenshots-F472B6?style=for-the-badge&labelColor=07091a" alt="See screenshots"/>
   </a>
 </p>
-<p align="center"><sub><em>The dashboard runs locally in two minutes — see <a href="#%EF%B8%8F-running-it-yourself">Running it yourself</a> below. A hosted demo will replace this banner once deployed.</em></sub></p>
+<p align="center"><sub><em>The dashboard runs locally in two minutes — see <a href="#%EF%B8%8F-running-it-yourself">Running it yourself</a> below. The deploy button spins up your own free Streamlit Cloud copy in one click.</em></sub></p>
 
 <!-- ─── Badges ─────────────────────────────────────────────────────── -->
 <p align="center">
