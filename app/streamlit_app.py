@@ -751,7 +751,28 @@ with t4:
         skin_thickness = st.slider("Triceps skin fold (mm)", 5, 60, 35)
     with c2:
         insulin = st.slider("2-h serum insulin (µU/mL)", 0, 900, 168)
-        bmi = st.slider("BMI", 10.0, 60.0, 33.6, step=0.1)
+        hcol, wcol = st.columns(2)
+        with hcol:
+            height_cm = st.number_input("Height (cm)", min_value=100, max_value=220, value=165, step=1)
+        with wcol:
+            weight_kg = st.number_input("Weight (kg)", min_value=30.0, max_value=200.0, value=91.5, step=0.5, format="%.1f")
+        height_m = height_cm / 100
+        bmi = round(weight_kg / (height_m * height_m), 1)
+        if bmi < 18.5:
+            bmi_band, bmi_color = "Underweight", "#22d3ee"
+        elif bmi < 25:
+            bmi_band, bmi_color = "Normal weight", "#4ade80"
+        elif bmi < 30:
+            bmi_band, bmi_color = "Overweight", "#fbbf24"
+        else:
+            bmi_band, bmi_color = "Obese", "#fb7185"
+        st.markdown(
+            f"<div style='margin-top:-6px;padding:6px 10px;border-radius:8px;"
+            f"background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
+            f"font-size:0.92rem'>BMI = <b style='color:{bmi_color}'>{bmi}</b> "
+            f"<span style='opacity:0.75'>· {bmi_band}</span></div>",
+            unsafe_allow_html=True,
+        )
         pedigree = st.slider("Diabetes pedigree", 0.05, 2.50, 0.627, step=0.01)
         age = st.slider("Age (years)", 18, 90, 50)
 
