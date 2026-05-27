@@ -12,12 +12,12 @@
 
 <!-- ─── Launch dashboard button ────────────────────────────────────── -->
 <p align="center">
-  <a href="https://diabetes-risk-mlops.streamlit.app">
-    <img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20live%20dashboard-7C3AED?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="Launch dashboard"/>
+  <a href="https://huggingface.co/spaces/nanettetada/diabetes-risk-mlops">
+    <img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20live%20dashboard-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black&labelColor=07091a" alt="Launch dashboard on Hugging Face Spaces"/>
   </a>
   &nbsp;
-  <a href="https://share.streamlit.io/deploy?repository=nanettetada%2Fdiabetes-risk-mlops&branch=main&mainModule=app%2Fstreamlit_app.py">
-    <img src="https://img.shields.io/badge/Deploy%20your%20own-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="Deploy"/>
+  <a href="https://huggingface.co/spaces/nanettetada/diabetes-risk-mlops?duplicate=true">
+    <img src="https://img.shields.io/badge/Duplicate%20Space-FF6B6B?style=for-the-badge&logo=huggingface&logoColor=black&labelColor=07091a" alt="Duplicate this Space"/>
   </a>
   &nbsp;
   <a href="#%EF%B8%8F-running-it-yourself">

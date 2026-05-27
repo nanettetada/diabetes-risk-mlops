@@ -18,8 +18,12 @@ import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
 from sklearn.inspection import permutation_importance  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
+    accuracy_score,
     confusion_matrix,
+    f1_score,
     precision_recall_curve,
+    precision_score,
+    recall_score,
     roc_curve,
 )
 from sklearn.model_selection import train_test_split  # noqa: E402
@@ -313,18 +317,20 @@ st.markdown(
 # ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("### 🧠 Model card")
-    st.markdown(f"**Algorithm:** `{artifact['model_name']}`")
-    st.markdown(f"**Tuned threshold:** `{THRESHOLD:.3f}`")
+    st.markdown("### 🧠 At a glance")
+    st.markdown(f"**Behind the scenes:** `{artifact['model_name']}`")
+    st.caption("The kind of math the model uses. Not important if you're not a data person.")
+    st.markdown(f"**Cut-off setting:** `{THRESHOLD:.2f}`")
+    st.caption("Predicted risk above this number = the model raises a flag.")
     st.markdown("---")
-    st.markdown("**Held-out performance**")
-    st.markdown(f"- ROC-AUC · `{m['roc_auc']:.3f}`")
-    st.markdown(f"- Recall (positives) · `{m['recall']:.3f}`")
-    st.markdown(f"- Accuracy · `{m['accuracy']:.3f}`")
+    st.markdown("**How well it did on patients it had never seen:**")
+    st.markdown(f"- Catches **{m['recall']:.0%}** of real diabetics")
+    st.markdown(f"- Gets **{m['accuracy']:.0%}** of all patients right overall")
+    st.markdown(f"- Risk-ranking skill: **{m['roc_auc']:.2f} / 1.00**")
     st.markdown("---")
-    st.caption(
-        "**Disclaimer.** Screening triage only — not a clinical diagnosis. "
-        "The output is a probability, the threshold is a policy choice."
+    st.warning(
+        "**Not a diagnosis.** This is a sorting/screening tool. "
+        "Any real flag still needs a proper lab test to confirm."
     )
     st.markdown("---")
     st.caption("Built with Python · scikit-learn · MLflow · FastAPI · Streamlit · Plotly")
@@ -353,11 +359,29 @@ def metric_card(label: str, value: str, accent: str, delta: str = "") -> str:
 with t1:
     df = get_data()
 
+    with st.expander("👋 First time here? Read this 30-second intro", expanded=False):
+        st.markdown(
+            """
+**What this app does, in plain English:** A patient walks into a clinic. The nurse types in their basic
+measurements (glucose level, BMI, blood pressure, age, etc.). The app gives back a **percentage chance**
+that this patient has diabetes.
+
+It's not a diagnosis — it's a sorting tool. The clinic only has so many slots for the expensive HbA1c
+confirmation test. This helps the nurse decide *which patients should jump the queue*.
+
+**The four tabs:**
+1. **Overview** — the problem this is solving and the data we used.
+2. **Data insights** — what the data looks like (mostly non-diabetic patients) and which measurements seem to matter.
+3. **Model insights** — how well the model performs, and a slider so you can experiment with how "cautious" you want it to be.
+4. **Try the model** — type in a hypothetical patient and watch the risk score appear live.
+            """
+        )
+
     c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(metric_card("Patients", f"{len(df):,}", "accent-purple", "in the dataset"), unsafe_allow_html=True)
-    c2.markdown(metric_card("Diabetic", f"{int(df[C.TARGET].sum()):,}", "accent-pink", "positive class"), unsafe_allow_html=True)
-    c3.markdown(metric_card("Prevalence", f"{df[C.TARGET].mean():.0%}", "accent-cyan", "imbalanced toward negatives"), unsafe_allow_html=True)
-    c4.markdown(metric_card("Recall", f"{m['recall']:.0%}", "accent-green", f"on held-out test (threshold {THRESHOLD:.2f})"), unsafe_allow_html=True)
+    c1.markdown(metric_card("Patients in study", f"{len(df):,}", "accent-purple", "the data we trained on"), unsafe_allow_html=True)
+    c2.markdown(metric_card("Had diabetes", f"{int(df[C.TARGET].sum()):,}", "accent-pink", f"{df[C.TARGET].mean():.0%} of the group"), unsafe_allow_html=True)
+    c3.markdown(metric_card("Didn't", f"{int((1-df[C.TARGET]).sum()):,}", "accent-cyan", "the majority"), unsafe_allow_html=True)
+    c4.markdown(metric_card("We catch", f"{m['recall']:.0%}", "accent-green", "of true diabetics on unseen patients"), unsafe_allow_html=True)
 
     st.markdown('<div class="section-h">Why this exists</div>', unsafe_allow_html=True)
     st.markdown(
@@ -407,8 +431,15 @@ that a clinician (not the data scientist) gets to set.
 with t2:
     df = get_data()
 
-    st.markdown('<div class="section-h">How the classes split</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Imbalanced toward negatives — important for picking the right metric.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-h">How many of each in the data</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Most patients in the dataset <em>don't</em> have diabetes. That sounds obvious, but it matters: "
+        "a lazy model that just guesses \"no diabetes\" for everyone would still look right most of the time. "
+        "We need to make sure ours actually catches the diabetic ones."
+        '</div>',
+        unsafe_allow_html=True,
+    )
     bal = df[C.TARGET].value_counts().sort_index()
     fig = go.Figure(go.Bar(
         x=["No diabetes", "Diabetes"],
@@ -424,9 +455,16 @@ with t2:
     fig.update_layout(**PLOTLY_THEME, height=320, showlegend=False, yaxis_title="Patients")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('<div class="section-h">Feature distribution by outcome</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Switch features. The bigger the separation, the more signal the model gets out of it.</div>', unsafe_allow_html=True)
-    feature = st.selectbox("Feature", C.FEATURES, index=C.FEATURES.index("Glucose"), label_visibility="collapsed")
+    st.markdown('<div class="section-h">Does this measurement actually tell us anything?</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Pick a measurement below. Pink = patients who have diabetes, cyan = patients who don't. "
+        "If the two coloured shapes <strong>barely overlap</strong>, that measurement is super useful (try <em>Glucose</em>). "
+        "If they sit on top of each other, the measurement is basically noise for telling the two groups apart (try <em>BloodPressure</em>)."
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    feature = st.selectbox("Pick a measurement to compare", C.FEATURES, index=C.FEATURES.index("Glucose"))
     sub = df.dropna(subset=[feature]).copy()
     sub["Outcome"] = sub[C.TARGET].map({0: "No diabetes", 1: "Diabetes"})
     fig = px.histogram(
@@ -438,8 +476,15 @@ with t2:
     fig.update_layout(**PLOTLY_THEME, height=430, legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('<div class="section-h">Pairwise correlations</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Just to know what moves with what — useful when reading the feature-importance chart later.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-h">What moves with what</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "<strong>Pink</strong> squares = two things rise together (e.g. higher BMI usually comes with higher skin-fold thickness). "
+        "<strong>Cyan</strong> squares = one goes up as the other goes down. "
+        "<strong>Dark</strong> = they have nothing to do with each other. Useful to know which measurements basically repeat each other."
+        '</div>',
+        unsafe_allow_html=True,
+    )
     corr = df.corr(numeric_only=True)
     fig = go.Figure(go.Heatmap(
         z=corr.values, x=corr.columns, y=corr.columns,
@@ -462,16 +507,56 @@ with t2:
 # ═══ TAB 3 — Model insights ══════════════════════════════════════════════════
 
 with t3:
-    X_test, y_test, proba, pred = get_holdout()
+    X_test, y_test, proba, _ = get_holdout()
+
+    st.markdown('<div class="section-h">How cautious should the model be?</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Think of this like the sensitivity dial on a smoke alarm. "
+        "<strong>Slide it left</strong> &rarr; flag almost everyone (catches every diabetic, but lots of false alarms). "
+        "<strong>Slide it right</strong> &rarr; only flag the obvious cases (fewer false alarms, but you'll miss some real diabetics). "
+        "Every chart on this tab updates live as you drag."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    live_threshold = st.slider(
+        "Flag a patient if their predicted risk is at least…",
+        min_value=0.05, max_value=0.95,
+        value=float(THRESHOLD), step=0.01,
+        format="%.2f",
+        key="live_threshold",
+        help=f"The default of {THRESHOLD:.2f} is the value the project tuned to so that the model catches at least {int(C.TARGET_RECALL * 100)}% of real diabetics.",
+    )
+    pred = (proba >= live_threshold).astype(int)
+
+    live_recall = recall_score(y_test, pred, zero_division=0)
+    live_precision = precision_score(y_test, pred, zero_division=0)
+    live_accuracy = accuracy_score(y_test, pred)
+    live_f1 = f1_score(y_test, pred, zero_division=0)
+    delta_to_tuned = live_threshold - THRESHOLD
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(metric_card("ROC-AUC", f"{m['roc_auc']:.3f}", "accent-purple", "held-out test set"), unsafe_allow_html=True)
-    c2.markdown(metric_card("Recall", f"{m['recall']:.3f}", "accent-green", "positive class"), unsafe_allow_html=True)
-    c3.markdown(metric_card("Accuracy", f"{m['accuracy']:.3f}", "accent-cyan", "all classes"), unsafe_allow_html=True)
-    c4.markdown(metric_card("F1", f"{m['f1']:.3f}", "accent-pink", "harmonic mean"), unsafe_allow_html=True)
+    c1.markdown(metric_card("Overall skill", f"{m['roc_auc']:.2f}", "accent-purple", "how well the model ranks risk (1.0 = perfect, 0.5 = coin flip)"), unsafe_allow_html=True)
+    c2.markdown(metric_card("Diabetics caught", f"{live_recall:.0%}", "accent-green", "of real diabetics, this share gets flagged"), unsafe_allow_html=True)
+    c3.markdown(metric_card("Flags that are right", f"{live_precision:.0%}", "accent-cyan", "of flagged patients, this share actually had diabetes"), unsafe_allow_html=True)
+    c4.markdown(metric_card("Overall correct", f"{live_accuracy:.0%}", "accent-pink", f"balance score (F1) {live_f1:.2f}"), unsafe_allow_html=True)
 
-    st.markdown('<div class="section-h">Confusion matrix</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Cell shading is normalised within each true-label row, so darker columns are the model\'s preferred answer for that class.</div>', unsafe_allow_html=True)
+    if abs(delta_to_tuned) < 1e-6:
+        st.caption(f"📍 You're at the tuned default ({THRESHOLD:.2f}) — the setting the project ships with.")
+    elif delta_to_tuned > 0:
+        st.caption(f"🔼 You made the model {delta_to_tuned:+.2f} stricter. Fewer false alarms — but more real diabetics slip through.")
+    else:
+        st.caption(f"🔽 You made the model {abs(delta_to_tuned):.2f} more cautious. You'll catch more diabetics, at the cost of more false alarms.")
+
+    st.markdown('<div class="section-h">Who the model got right (and wrong)</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Read this like a 2&times;2 grid. <strong>Rows</strong> are what the patient actually was. "
+        "<strong>Columns</strong> are what the model predicted. The two boxes on the top-left&rarr;bottom-right diagonal are the model getting it right. "
+        "The other two are the mistakes — and not all mistakes are equal."
+        '</div>',
+        unsafe_allow_html=True,
+    )
     cm = confusion_matrix(y_test, pred)
     cm_norm = cm / cm.sum(axis=1, keepdims=True)
     cm_labels = [[f"<b>{cm[i, j]}</b><br><span style='font-size:0.75em;opacity:0.7'>{cm_norm[i, j]:.0%}</span>" for j in range(2)] for i in range(2)]
@@ -490,14 +575,31 @@ with t3:
     st.plotly_chart(fig, use_container_width=True)
     tn, fp, fn, tp = cm.ravel()
     st.markdown(
-        f"- 🟢 **{tn}** true negatives — healthy patients correctly cleared\n"
-        f"- 🟡 **{fp}** false positives — healthy patients flagged for a follow-up test\n"
-        f"- 🔴 **{fn}** false negatives — *missed diabetic cases (the bad ones)*\n"
-        f"- 🟢 **{tp}** true positives — diabetic patients correctly flagged"
+        f"- 🟢 **{tn} healthy patients correctly cleared** — model said \"no diabetes\", reality agreed.\n"
+        f"- 🟡 **{fp} healthy patients sent for an extra test** — false alarm. Costs the clinic time and money, but no harm done.\n"
+        f"- 🔴 **{fn} diabetic patients sent home as healthy** — *the dangerous mistake.* These cases walk away undiagnosed.\n"
+        f"- 🟢 **{tp} diabetic patients correctly flagged** — caught and sent for confirmation."
+    )
+    st.info(
+        "In a clinic setting, the red row is what keeps a doctor up at night. That's why this model is "
+        "tuned to be **biased toward false alarms** — better to test a healthy patient unnecessarily than to "
+        "send a diabetic one home.",
+        icon="💡",
     )
 
-    st.markdown('<div class="section-h">ROC + Precision-Recall</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">The recall target (vertical dashed line) is the policy parameter — threshold tuning shifts the operating point until recall meets that target.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-h">The model\'s trade-off, visualised</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "These two charts show every possible setting of the slider, all at once. "
+        "<strong>The amber dot is where <em>you</em> currently are</strong> — drag the slider above and watch it move. "
+        "Curves that bulge toward the top-left (left chart) or top-right (right chart) mean a stronger model."
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    tn_op, fp_op, fn_op, tp_op = cm.ravel()
+    op_fpr = fp_op / max(1, fp_op + tn_op)
+    op_tpr = live_recall
+    op_precision = live_precision
     col_a, col_b = st.columns(2)
     with col_a:
         fpr, tpr, _ = roc_curve(y_test, proba)
@@ -506,6 +608,12 @@ with t3:
                                  fill="tozeroy", fillcolor="rgba(124,58,237,0.15)",
                                  name=f"AUC = {m['roc_auc']:.3f}", hovertemplate="FPR=%{x:.2f}<br>TPR=%{y:.2f}<extra></extra>"))
         fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(dash="dot", color="rgba(255,255,255,0.30)"), showlegend=False))
+        fig.add_trace(go.Scatter(
+            x=[op_fpr], y=[op_tpr], mode="markers",
+            marker=dict(size=16, color=PALETTE["accent"], line=dict(color="white", width=2), symbol="circle"),
+            name=f"Operating point (t={live_threshold:.2f})",
+            hovertemplate=f"Threshold {live_threshold:.2f}<br>FPR=%{{x:.2f}}<br>TPR=%{{y:.2f}}<extra></extra>",
+        ))
         fig.update_layout(**PLOTLY_THEME, height=380, title="ROC curve",
                           xaxis_title="False positive rate", yaxis_title="True positive rate",
                           legend=dict(orientation="h", yanchor="bottom", y=-0.25))
@@ -518,16 +626,29 @@ with t3:
                                  fill="tozeroy", fillcolor="rgba(244,114,182,0.15)",
                                  hovertemplate="Recall=%{x:.2f}<br>Precision=%{y:.2f}<extra></extra>",
                                  name="PR curve"))
-        fig.add_vline(x=C.TARGET_RECALL, line=dict(color=PALETTE["accent"], dash="dash", width=2),
-                      annotation_text=f"Recall target {C.TARGET_RECALL:.0%}", annotation_position="top right",
-                      annotation_font_color=PALETTE["accent"])
+        fig.add_vline(x=C.TARGET_RECALL, line=dict(color="rgba(255,255,255,0.30)", dash="dash", width=1.5),
+                      annotation_text=f"Target {C.TARGET_RECALL:.0%}", annotation_position="top right",
+                      annotation_font_color="rgba(255,255,255,0.55)")
+        fig.add_trace(go.Scatter(
+            x=[op_tpr], y=[op_precision], mode="markers",
+            marker=dict(size=16, color=PALETTE["accent"], line=dict(color="white", width=2), symbol="circle"),
+            name=f"Operating point (t={live_threshold:.2f})",
+            hovertemplate=f"Threshold {live_threshold:.2f}<br>Recall=%{{x:.2f}}<br>Precision=%{{y:.2f}}<extra></extra>",
+        ))
         fig.update_layout(**PLOTLY_THEME, height=380, title="Precision-Recall",
                           xaxis_title="Recall", yaxis_title="Precision",
                           legend=dict(orientation="h", yanchor="bottom", y=-0.25))
         st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown('<div class="section-h">Permutation feature importance</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">How much the ROC-AUC drops when each feature is shuffled. Higher = the model leans on it more.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-h">Which measurements matter most?</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "We tested each measurement by randomly scrambling its values and seeing how much the model's skill dropped. "
+        "<strong>Longer bar = the model would be in worse trouble without it</strong>. "
+        "This is how you'd explain to a sceptical clinician why the model thinks what it thinks."
+        '</div>',
+        unsafe_allow_html=True,
+    )
     imp = get_importance()
     norm = (imp["importance"] - imp["importance"].min()) / max(1e-9, (imp["importance"].max() - imp["importance"].min()))
     colors = [f"rgba({int(244-(244-34)*v)},{int(114+(211-114)*v)},{int(182+(238-182)*v)},0.85)" for v in norm]
@@ -547,8 +668,15 @@ with t3:
 # ═══ TAB 4 — Try the model ═══════════════════════════════════════════════════
 
 with t4:
-    st.markdown('<div class="section-h">Score a single patient</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Move the sliders to a hypothetical patient. The risk gauge updates live; hit estimate for the verdict.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-h">Try it on a made-up patient</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Move the sliders to invent a patient — high glucose, older age, higher BMI usually push the risk up. "
+        "The gauge below updates instantly as you move things. "
+        "<strong>Red zone</strong> = the model would flag them. <strong>Green zone</strong> = it would clear them."
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     c1, c2 = st.columns(2)
     with c1:
@@ -625,9 +753,16 @@ with t4:
             unsafe_allow_html=True,
         )
 
-    st.markdown('<div class="section-h">Where this patient sits in the cohort</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">The dashed line is this patient. The shaded curves are the diabetic vs non-diabetic distributions from the training data.</div>', unsafe_allow_html=True)
-    cmp_feat = st.selectbox("Compare against:", C.FEATURES, index=C.FEATURES.index("Glucose"), key="cmp_feat")
+    st.markdown('<div class="section-h">How this patient compares to everyone else</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "The <strong>amber dashed line</strong> is your made-up patient. "
+        "The cyan and pink shapes show how all the real diabetic and non-diabetic patients in the study are spread out for the chosen measurement. "
+        "If the dashed line falls in the pink cloud, your patient looks similar to the diabetics."
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    cmp_feat = st.selectbox("Which measurement to compare", C.FEATURES, index=C.FEATURES.index("Glucose"), key="cmp_feat")
     df = get_data()
     sub = df.dropna(subset=[cmp_feat]).copy()
     sub["Outcome"] = sub[C.TARGET].map({0: "No diabetes", 1: "Diabetes"})
