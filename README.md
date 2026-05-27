@@ -6,24 +6,23 @@
 <!-- ─── Typing animation ───────────────────────────────────────────── -->
 <p align="center">
   <a href="https://github.com/nanettetada/diabetes-risk-mlops">
-    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&duration=2800&pause=600&color=7C3AED&center=true&vCenter=true&width=760&lines=Built+for+Zimbabwean+primary+care;Pipeline+%E2%86%92+MLflow+%E2%86%92+API+%E2%86%92+Dashboard;Screening+triage%2C+not+diagnosis;Recall+0.91+on+held-out+test+set;Glassmorphism+Streamlit+%2B+FastAPI" alt="Typing SVG"/>
+    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&duration=2800&pause=600&color=7C3AED&center=true&vCenter=true&width=760&lines=Built+for+Zimbabwean+primary+care;Pipeline+%E2%86%92+MLflow+%E2%86%92+API+%E2%86%92+Dashboard;Screening+triage%2C+not+diagnosis;Recall+0.91+on+held-out+test+set;Runs+locally+in+two+minutes" alt="Typing SVG"/>
   </a>
 </p>
 
 <!-- ─── Launch dashboard button ────────────────────────────────────── -->
 <p align="center">
-  <a href="https://huggingface.co/spaces/nanettetada/diabetes-risk-mlops">
-    <img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20live%20dashboard-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black&labelColor=07091a" alt="Launch dashboard on Hugging Face Spaces"/>
-  </a>
-  &nbsp;
-  <a href="https://huggingface.co/spaces/nanettetada/diabetes-risk-mlops?duplicate=true">
-    <img src="https://img.shields.io/badge/Duplicate%20Space-FF6B6B?style=for-the-badge&logo=huggingface&logoColor=black&labelColor=07091a" alt="Duplicate this Space"/>
-  </a>
+  <img src="https://img.shields.io/badge/%E2%8F%B3%20Hosted%20demo%20coming%20soon-7C3AED?style=for-the-badge&labelColor=07091a" alt="Hosted demo coming soon"/>
   &nbsp;
   <a href="#%EF%B8%8F-running-it-yourself">
-    <img src="https://img.shields.io/badge/Run%20locally-22D3EE?style=for-the-badge&logo=python&logoColor=white&labelColor=07091a" alt="Run locally"/>
+    <img src="https://img.shields.io/badge/%E2%96%B6%20Run%20it%20locally%20in%202%20min-22D3EE?style=for-the-badge&logo=python&logoColor=white&labelColor=07091a" alt="Run locally"/>
+  </a>
+  &nbsp;
+  <a href="docs/screenshots/">
+    <img src="https://img.shields.io/badge/%F0%9F%93%B8%20See%20screenshots-F472B6?style=for-the-badge&labelColor=07091a" alt="See screenshots"/>
   </a>
 </p>
+<p align="center"><sub><em>The dashboard runs locally in two minutes — see <a href="#%EF%B8%8F-running-it-yourself">Running it yourself</a> below. A hosted demo will replace this banner once deployed.</em></sub></p>
 
 <!-- ─── Badges ─────────────────────────────────────────────────────── -->
 <p align="center">
