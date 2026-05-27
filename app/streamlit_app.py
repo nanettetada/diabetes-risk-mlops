@@ -19,6 +19,7 @@ import pandas as pd  # noqa: E402
 import plotly.express as px  # noqa: E402
 import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
+import streamlit.components.v1 as components  # noqa: E402
 from sklearn.inspection import permutation_importance  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     accuracy_score,
@@ -756,6 +757,26 @@ with t4:
             height_cm = st.number_input("Height (cm)", min_value=100, max_value=220, value=165, step=1)
         with wcol:
             weight_kg = st.number_input("Weight (kg)", min_value=30.0, max_value=200.0, value=91.5, step=0.5, format="%.1f")
+        components.html(
+            """
+            <script>
+            const apply = () => {
+                const doc = window.parent.document;
+                ["Height (cm)", "Weight (kg)"].forEach(label => {
+                    doc.querySelectorAll('input[aria-label="' + label + '"]').forEach(inp => {
+                        inp.setAttribute("inputmode", "decimal");
+                        inp.setAttribute("pattern", "[0-9]*\\\\.?[0-9]*");
+                    });
+                });
+            };
+            apply();
+            setTimeout(apply, 150);
+            setTimeout(apply, 600);
+            setTimeout(apply, 1500);
+            </script>
+            """,
+            height=0,
+        )
         height_m = height_cm / 100
         bmi = round(weight_kg / (height_m * height_m), 1)
         if bmi < 18.5:
