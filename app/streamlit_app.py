@@ -12,6 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+import io  # noqa: E402
+
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import plotly.express as px  # noqa: E402
 import plotly.graph_objects as go  # noqa: E402
@@ -30,7 +33,7 @@ from sklearn.model_selection import train_test_split  # noqa: E402
 
 from diabetes_mlops import config as C  # noqa: E402
 from diabetes_mlops.data import clean, load_raw  # noqa: E402
-from diabetes_mlops.predict import load_artifact, predict_one  # noqa: E402
+from diabetes_mlops.predict import load_artifact, predict_batch, predict_one  # noqa: E402
 
 # ─── Streamlit page setup ────────────────────────────────────────────────────
 
@@ -338,7 +341,13 @@ with st.sidebar:
 
 # ─── Tabs ────────────────────────────────────────────────────────────────────
 
-t1, t2, t3, t4 = st.tabs(["✨ Overview", "📊 Data insights", "🧪 Model insights", "🎯 Try the model"])
+t1, t2, t3, t4, t5 = st.tabs([
+    "✨ Overview",
+    "📊 Data insights",
+    "🧪 Model insights",
+    "🎯 Try the model",
+    "🏥 Run a clinic day",
+])
 
 
 # ═══ Helper: glass metric card ═══════════════════════════════════════════════
@@ -664,6 +673,62 @@ with t3:
     fig.update_layout(**PLOTLY_THEME, height=420, xaxis_title="Δ ROC-AUC when shuffled")
     st.plotly_chart(fig, use_container_width=True)
 
+    # ─── Clinic-impact framing: what does the threshold mean for a real clinic? ──
+    st.markdown('<div class="section-h">What this means for a real clinic</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "All the numbers above are still abstract. Put a clinic in front of them: "
+        "how many patients you see in a week, and how much a confirmatory HbA1c test costs. "
+        "We then compare two policies — <strong>test everyone</strong> versus <strong>test only patients the model flags</strong>."
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    cci1, cci2 = st.columns(2)
+    with cci1:
+        weekly_patients = st.slider(
+            "Patients screened per week", min_value=20, max_value=500, value=120, step=10,
+            help="Adjust to your clinic. The default of 120 is a busy urban polyclinic in Harare.",
+        )
+    with cci2:
+        cost_per_test = st.slider(
+            "Cost per HbA1c test (USD)", min_value=2, max_value=30, value=12, step=1,
+            help="Public-sector HbA1c testing in Zimbabwe is roughly USD 8–15 depending on lot pricing.",
+        )
+
+    flag_rate = pred.mean()
+    real_diabetic_rate = float(y_test.mean())
+    expected_flagged_per_week = weekly_patients * flag_rate
+    expected_diabetic_per_week = weekly_patients * real_diabetic_rate
+    diabetics_caught_per_week = expected_diabetic_per_week * live_recall
+    diabetics_missed_per_week = expected_diabetic_per_week * (1 - live_recall)
+
+    test_everyone_cost = weekly_patients * cost_per_test
+    triage_cost = expected_flagged_per_week * cost_per_test
+    savings_per_week = test_everyone_cost - triage_cost
+    savings_per_year = savings_per_week * 52
+
+    ic1, ic2, ic3, ic4 = st.columns(4)
+    ic1.markdown(metric_card("Patients flagged / week", f"{expected_flagged_per_week:.0f}", "accent-purple", f"out of {weekly_patients} screened"), unsafe_allow_html=True)
+    ic2.markdown(metric_card("Diabetics caught / week", f"{diabetics_caught_per_week:.0f}", "accent-green", f"out of ~{expected_diabetic_per_week:.0f} real cases"), unsafe_allow_html=True)
+    ic3.markdown(metric_card("Diabetics missed / week", f"{diabetics_missed_per_week:.0f}", "accent-rose", "the cost of being too strict"), unsafe_allow_html=True)
+    ic4.markdown(metric_card("Yearly test-spend saved", f"${savings_per_year:,.0f}", "accent-amber", f"vs. testing all {weekly_patients}/week"), unsafe_allow_html=True)
+
+    if diabetics_missed_per_week >= 1:
+        st.warning(
+            f"At this cut-off the clinic would **miss roughly {diabetics_missed_per_week:.0f} diabetic patient(s) per week**. "
+            "If your clinic's tolerance for missed cases is zero, slide the threshold down on the slider above.",
+            icon="⚠️",
+        )
+    else:
+        st.success(
+            f"At this cut-off the clinic would miss under one real diabetic per week, while saving roughly **${savings_per_year:,.0f} per year** in HbA1c test costs vs. testing every patient who walks in.",
+            icon="✅",
+        )
+    st.caption(
+        "Assumes the held-out test set's diabetic prevalence (~35%) generalises. "
+        "Cost figures are gross HbA1c reagent cost only — real clinic economics include lab time, transport, and follow-up visits."
+    )
+
 
 # ═══ TAB 4 — Try the model ═══════════════════════════════════════════════════
 
@@ -779,3 +844,182 @@ with t4:
 
     with st.expander("📋 Input summary"):
         st.dataframe(pd.DataFrame([payload]).T.rename(columns={0: "value"}), use_container_width=True)
+
+    # ─── Counterfactual: what would change this patient's risk? ──────────────
+    st.markdown('<div class="section-h">What if this patient changed one thing?</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "Take this patient as-is, then sweep <em>one</em> measurement across its full range while keeping everything else fixed. "
+        "The line shows how the predicted risk would respond. "
+        "Useful for patient counselling: <em>\"if your glucose came down to here, your risk score would drop to here\".</em>"
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    sweep_feature = st.selectbox(
+        "Which measurement to sweep?",
+        C.FEATURES,
+        index=C.FEATURES.index("Glucose"),
+        key="sweep_feat",
+    )
+    df_for_range = get_data()
+    series = df_for_range[sweep_feature].dropna()
+    lo, hi = float(series.quantile(0.02)), float(series.quantile(0.98))
+    sweep_values = np.linspace(lo, hi, 40)
+    sweep_rows = []
+    for v in sweep_values:
+        row = dict(payload)
+        row[sweep_feature] = float(v)
+        sweep_rows.append(row)
+    sweep_df = pd.DataFrame(sweep_rows)
+    sweep_probs = predict_batch(sweep_df)["probability"].values
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=sweep_values, y=sweep_probs * 100, mode="lines",
+        line=dict(color=PALETTE["primary"], width=3),
+        fill="tozeroy", fillcolor="rgba(124,58,237,0.12)",
+        hovertemplate=f"{sweep_feature}: %{{x:.1f}}<br>Risk: %{{y:.1f}}%<extra></extra>",
+        name="Predicted risk",
+    ))
+    fig.add_hline(
+        y=THRESHOLD * 100, line=dict(color=PALETTE["accent"], dash="dash", width=2),
+        annotation_text=f"Flag threshold {THRESHOLD:.0%}", annotation_position="top right",
+        annotation_font_color=PALETTE["accent"],
+    )
+    fig.add_vline(
+        x=payload[sweep_feature], line=dict(color=PALETTE["warn"], dash="dot", width=2),
+        annotation_text="this patient now", annotation_position="top",
+        annotation_font_color=PALETTE["warn"],
+    )
+    fig.update_layout(
+        **PLOTLY_THEME, height=380,
+        xaxis_title=sweep_feature, yaxis_title="Predicted diabetes risk (%)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "This is a *what-if*, not a causal claim — the line shows what the model would predict, not what would clinically happen. "
+        "But where it crosses the dashed threshold is genuinely useful as a counselling target."
+    )
+
+
+# ═══ TAB 5 — Run a clinic day (batch screening) ══════════════════════════════
+
+with t5:
+    st.markdown('<div class="section-h">Screen a whole list of patients at once</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-sub">'
+        "The single-patient form is a demo — the real workflow is: a nurse exports the day's intake spreadsheet, "
+        "drops it here, and gets back a triage list <strong>sorted from highest risk to lowest</strong>. "
+        "The top names are the patients to send for HbA1c first."
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    expected_cols = ", ".join(C.FEATURES)
+    st.caption(f"Your CSV needs these columns (exact spelling): **{expected_cols}**")
+
+    src_col, action_col = st.columns([2, 1])
+    with src_col:
+        uploaded = st.file_uploader("Drop a CSV here", type=["csv"], label_visibility="collapsed")
+    with action_col:
+        use_sample = st.button("…or use a sample of 50 real patients", type="secondary", use_container_width=True)
+
+    batch_df = None
+    source_label = ""
+    if uploaded is not None:
+        try:
+            batch_df = pd.read_csv(uploaded)
+            source_label = f"uploaded file ({uploaded.name})"
+        except Exception as e:
+            st.error(f"Couldn't read that CSV: {e}")
+    elif use_sample:
+        sample_src = get_data().sample(n=50, random_state=7)
+        batch_df = sample_src[C.FEATURES].reset_index(drop=True)
+        source_label = "50 random patients from the held-out study data"
+
+    if batch_df is not None:
+        missing = [c for c in C.FEATURES if c not in batch_df.columns]
+        if missing:
+            st.error(f"Your file is missing these required columns: {missing}")
+        else:
+            with st.spinner("Scoring patients…"):
+                scored = predict_batch(batch_df)
+            scored = scored.sort_values("probability", ascending=False).reset_index(drop=True)
+            scored.insert(0, "Patient #", scored.index + 1)
+            scored["risk_band"] = pd.cut(
+                scored["probability"],
+                bins=[-0.001, THRESHOLD * 0.5, THRESHOLD, 1.0],
+                labels=["Low", "Watch", "Flagged"],
+            )
+
+            n = len(scored)
+            n_flag = int((scored["label"] == 1).sum())
+            n_watch = int((scored["risk_band"] == "Watch").sum())
+            mean_risk = float(scored["probability"].mean())
+
+            st.caption(f"Source: {source_label} · {n} patient(s) scored at threshold {THRESHOLD:.2f}")
+
+            b1, b2, b3, b4 = st.columns(4)
+            b1.markdown(metric_card("Patients", f"{n:,}", "accent-purple", "in this batch"), unsafe_allow_html=True)
+            b2.markdown(metric_card("Flagged", f"{n_flag}", "accent-rose", f"{n_flag / n:.0%} of batch — send for HbA1c"), unsafe_allow_html=True)
+            b3.markdown(metric_card("Watchlist", f"{n_watch}", "accent-amber", "elevated but below cut-off"), unsafe_allow_html=True)
+            b4.markdown(metric_card("Avg risk", f"{mean_risk:.0%}", "accent-cyan", "across the batch"), unsafe_allow_html=True)
+
+            st.markdown('<div class="section-h">Risk spread across the batch</div>', unsafe_allow_html=True)
+            fig = px.histogram(
+                scored, x="probability", nbins=25, color="risk_band",
+                color_discrete_map={"Low": PALETTE["ok"], "Watch": PALETTE["accent"], "Flagged": PALETTE["warn"]},
+                category_orders={"risk_band": ["Low", "Watch", "Flagged"]},
+            )
+            fig.add_vline(x=THRESHOLD, line=dict(color="white", dash="dash", width=1.5),
+                          annotation_text=f"Flag at {THRESHOLD:.2f}", annotation_position="top",
+                          annotation_font_color="rgba(255,255,255,0.8)")
+            fig.update_layout(**PLOTLY_THEME, height=320, xaxis_title="Predicted diabetes risk",
+                              yaxis_title="Patients", legend_title_text="")
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown('<div class="section-h">Triage list — highest risk first</div>', unsafe_allow_html=True)
+            display = scored.copy()
+            display["probability"] = (display["probability"] * 100).round(1)
+            display = display.rename(columns={
+                "probability": "risk %",
+                "label": "flag (1=test)",
+                "risk_band": "band",
+            })
+            front_cols = ["Patient #", "risk %", "flag (1=test)", "band"]
+            ordered = front_cols + [c for c in display.columns if c not in front_cols]
+            st.dataframe(
+                display[ordered],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "risk %": st.column_config.ProgressColumn(
+                        "risk %", min_value=0, max_value=100, format="%.1f%%",
+                    ),
+                },
+            )
+
+            csv_bytes = scored.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️ Download scored CSV",
+                data=csv_bytes,
+                file_name="diabetes_triage_list.csv",
+                mime="text/csv",
+                type="primary",
+            )
+    else:
+        with st.expander("📄 What should the CSV look like? (click for a tiny example)"):
+            sample = pd.DataFrame([
+                {"Pregnancies": 1, "Glucose": 89,  "BloodPressure": 66, "SkinThickness": 23, "Insulin": 94,  "BMI": 28.1, "DiabetesPedigreeFunction": 0.167, "Age": 21},
+                {"Pregnancies": 8, "Glucose": 183, "BloodPressure": 64, "SkinThickness": 0,  "Insulin": 0,   "BMI": 23.3, "DiabetesPedigreeFunction": 0.672, "Age": 32},
+                {"Pregnancies": 0, "Glucose": 137, "BloodPressure": 40, "SkinThickness": 35, "Insulin": 168, "BMI": 43.1, "DiabetesPedigreeFunction": 2.288, "Age": 33},
+            ])
+            st.dataframe(sample, hide_index=True, use_container_width=True)
+            buf = io.StringIO()
+            sample.to_csv(buf, index=False)
+            st.download_button(
+                "⬇️ Download this example as CSV",
+                data=buf.getvalue().encode("utf-8"),
+                file_name="example_patients.csv",
+                mime="text/csv",
+            )
