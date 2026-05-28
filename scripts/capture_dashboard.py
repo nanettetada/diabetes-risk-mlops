@@ -1,11 +1,12 @@
-"""Capture screenshots of all four Streamlit dashboard tabs.
+"""Capture screenshots of all five Streamlit dashboard tabs.
 
 Assumes Streamlit is already running on http://127.0.0.1:8765.
-Writes docs/screenshots/{01_overview,02_data,03_model,04_predict}.png.
+Writes docs/screenshots/{01_overview,02_data,03_model,04_predict,05_batch}.png.
 
-The Predict tab is interactive: this script moves the Glucose, BMI and Age
-sliders to high-risk values and clicks "Estimate risk" so the screenshot shows
-an actual prediction rather than a blank form.
+The Try-the-model tab has no Estimate button anymore - the risk gauge updates
+live as soon as any input changes - so this script simply waits for the gauge
+to render and snaps the tab as-is. The Run-a-clinic-day tab clicks the
+"use a sample of 50 real patients" button to populate the triage table.
 
 Run with:
     python scripts/capture_dashboard.py
@@ -27,6 +28,7 @@ TAB_INDEX = {
     "Data insights": 1,
     "Model insights": 2,
     "Try the model": 3,
+    "Run a clinic day": 4,
 }
 
 
@@ -99,41 +101,56 @@ def main() -> None:
         # ── 04 Try the model ───────────────────────────────────────────
         print("Tab: Try the model")
         click_tab(page, "Try the model")
-        page.wait_for_selector('[data-testid="stSlider"]', timeout=60_000, state="visible")
+        # Anchor on a stable heading rather than a Streamlit widget selector
+        # (there are multiple hidden+visible sliders across tabs).
+        page.wait_for_selector('text="Try it on a made-up patient"', timeout=60_000, state="visible")
+        # The risk gauge updates live; wait for one of the two result banners.
+        try:
+            page.wait_for_selector(
+                'text=Below screening threshold, text=Flagged for follow-up',
+                timeout=15_000, state="visible",
+            )
+        except Exception:
+            pass
+        wait_no_spinner(page, 30)
+        time.sleep(4)
+        page.screenshot(path=str(OUT_DIR / "04_predict.png"), full_page=True)
+
+        # ── 05 Run a clinic day ────────────────────────────────────────
+        print("Tab: Run a clinic day")
+        click_tab(page, "Run a clinic day")
         wait_no_spinner(page, 30)
         time.sleep(2)
-
-        # Click "Estimate risk" — robust against re-renders by retrying.
+        # Click "use a sample of 50 real patients" so the screenshot shows
+        # a populated triage list rather than the empty upload prompt.
         clicked = False
-        for attempt in range(5):
+        for attempt in range(4):
             try:
-                btn = page.locator('button:has-text("Estimate risk")').first
-                btn.wait_for(state="visible", timeout=10_000)
-                btn.click(force=True, timeout=8_000)
+                sample_btn = page.locator('button:has-text("sample of 50 real patients")').first
+                sample_btn.wait_for(state="visible", timeout=10_000)
+                sample_btn.click(force=True, timeout=8_000)
+                print(f"  clicked sample button on attempt {attempt + 1}")
                 clicked = True
-                print(f"  clicked Estimate risk on attempt {attempt + 1}")
                 break
             except Exception as e:
                 print(f"  attempt {attempt + 1} failed: {e}")
                 time.sleep(1.5)
         if not clicked:
-            print("  WARNING: Estimate risk button never clicked")
-
-        # Wait for the success/error banner that follows a prediction.
+            print("  WARNING couldn't click sample button")
+        # Block until the populated state actually appears - the "Triage list"
+        # section header only renders once scoring is done.
         try:
             page.wait_for_selector(
-                'div[data-testid="stAlert"], div.stAlert, div:has-text("Below screening threshold"), div:has-text("Flagged for follow-up")',
-                timeout=30_000,
-                state="visible",
+                'text="Triage list"', timeout=45_000, state="visible",
             )
-            print("  prediction result rendered")
-        except Exception:
-            print("  prediction result selector not found, continuing")
+            print("  triage list rendered")
+        except Exception as e:
+            print(f"  WARNING triage list never rendered: {e}")
         wait_no_spinner(page, 30)
-        time.sleep(3)
-        page.screenshot(path=str(OUT_DIR / "04_predict.png"), full_page=True)
+        time.sleep(3)  # let the histogram + dataframe finish painting
+        page.screenshot(path=str(OUT_DIR / "05_batch.png"), full_page=True)
 
-        for f in OUT_DIR.glob("*.png"):
+        for f in sorted(OUT_DIR.glob("*.png")):
             print(f"  {f.name}  {f.stat().st_size // 1024} KB")
 
         browser.close()

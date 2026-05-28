@@ -369,6 +369,15 @@ def metric_card(label: str, value: str, accent: str, delta: str = "") -> str:
 with t1:
     df = get_data()
 
+    st.warning(
+        "**Honest disclosure:** the model is trained on the **Pima Indians Diabetes** dataset "
+        "(US, 1990, adult women only) — that's the publicly available, clinically labelled data. "
+        "The Zimbabwean primary-care framing throughout this dashboard is the *use case being demonstrated*, "
+        "not the population the model has learnt from. A real clinic deployment would need retraining on local data "
+        "and prospective validation. Treat this as an end-to-end MLOps demonstration, not a clinically validated tool.",
+        icon="⚠️",
+    )
+
     with st.expander("👋 First time here? Read this 30-second intro", expanded=False):
         st.markdown(
             """

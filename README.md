@@ -63,13 +63,15 @@ A small web app that takes the usual measurements you get at a Zimbabwean clinic
 
 Built by **Tadaishe Maumbe** in Harare. I'm a Health Data Science student, and the framing here is deliberately local: Zimbabwe's MoHCC reports adult diabetes prevalence around 10% on the latest STEPS survey, but HbA1c testing remains expensive and unevenly distributed across districts. A primary-care nurse at a polyclinic doesn't need *another* "diagnosis AI" — they need a way to decide **which patients deserve the limited confirmatory tests first**. That's what this is.
 
+> ⚠️ **Honest disclosure about the data.** The model is trained on the **Pima Indians Diabetes** dataset (n=768, adult women of the Akimel O'odham community, US, 1990) — that's what's publicly available and clinically labelled. The Zimbabwean framing is the *use case* this project demonstrates, **not** the population the model has actually learnt from. A production deployment in a Zimbabwean clinic would require retraining on local data and prospective validation. Treat everything here as an end-to-end MLOps demonstration, not a clinically validated tool.
+
 > **Stack:** Python · scikit-learn · MLflow · FastAPI · Streamlit · Docker · GitHub Actions
 
 ---
 
 ## 📸 The dashboard
 
-A dark-mode, glassmorphism Streamlit dashboard with interactive Plotly charts. Four tabs — each one telling a different part of the story.
+A dark-mode, glassmorphism Streamlit dashboard with interactive Plotly charts. Five tabs — each one telling a different part of the story.
 
 <table>
   <tr>
@@ -84,12 +86,18 @@ A dark-mode, glassmorphism Streamlit dashboard with interactive Plotly charts. F
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <p align="center"><b>③ Model insights</b><br/><sub>Held-out metrics, confusion matrix, ROC + PR, feature importance</sub></p>
+      <p align="center"><b>③ Model insights</b><br/><sub>Live threshold slider · clinic-impact cost calculator · ROC + PR with operating point · feature importance</sub></p>
       <img src="docs/screenshots/03_model.png" alt="Model insights tab" width="100%"/>
     </td>
     <td width="50%" valign="top">
-      <p align="center"><b>④ Try the model</b><br/><sub>Single-patient prediction with a distribution context plot</sub></p>
+      <p align="center"><b>④ Try the model</b><br/><sub>Height + weight → BMI · live risk gauge · counterfactual "what if" sweep</sub></p>
       <img src="docs/screenshots/04_predict.png" alt="Try the model tab" width="100%"/>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <p align="center"><b>⑤ Run a clinic day</b><br/><sub>Drop a patient CSV, get back a downloadable triage list sorted highest-risk first</sub></p>
+      <img src="docs/screenshots/05_batch.png" alt="Run a clinic day tab" width="100%"/>
     </td>
   </tr>
 </table>
