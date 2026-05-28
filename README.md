@@ -6,27 +6,29 @@
 <!-- ─── Typing animation ───────────────────────────────────────────── -->
 <p align="center">
   <a href="https://github.com/nanettetada/diabetes-risk-mlops">
-    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&duration=2800&pause=600&color=7C3AED&center=true&vCenter=true&width=760&lines=Built+for+Zimbabwean+primary+care;Pipeline+%E2%86%92+MLflow+%E2%86%92+API+%E2%86%92+Dashboard;Screening+triage%2C+not+diagnosis;Recall+0.91+on+held-out+test+set;Runs+locally+in+two+minutes" alt="Typing SVG"/>
+    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&duration=2800&pause=600&color=7C3AED&center=true&vCenter=true&width=760&lines=Built+for+Zimbabwean+primary+care;Pipeline+%E2%86%92+MLflow+%E2%86%92+API+%E2%86%92+Dashboard;Screening+triage%2C+not+diagnosis;Recall+0.91+on+held-out+test+set;Live+demo+%E2%86%92+click+the+red+button" alt="Typing SVG"/>
   </a>
 </p>
 
 <!-- ─── Launch dashboard button ────────────────────────────────────── -->
 <p align="center">
-  <img src="https://img.shields.io/badge/%E2%8F%B3%20Hosted%20demo%20coming%20soon-7C3AED?style=for-the-badge&labelColor=07091a" alt="Hosted demo coming soon"/>
+  <a href="https://nanettetada-diabetes-risk-mlops-appstreamlit-app-d1l7rc.streamlit.app/">
+    <img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20live%20dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="Launch live dashboard"/>
+  </a>
   &nbsp;
   <a href="https://share.streamlit.io/deploy?repository=nanettetada%2Fdiabetes-risk-mlops&branch=main&mainModule=app%2Fstreamlit_app.py">
-    <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Deploy%20your%20own-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="One-click deploy to Streamlit Cloud"/>
+    <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Deploy%20your%20own-7C3AED?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=07091a" alt="One-click deploy to Streamlit Cloud"/>
   </a>
   &nbsp;
   <a href="#%EF%B8%8F-running-it-yourself">
-    <img src="https://img.shields.io/badge/%E2%96%B6%20Run%20it%20locally%20in%202%20min-22D3EE?style=for-the-badge&logo=python&logoColor=white&labelColor=07091a" alt="Run locally"/>
+    <img src="https://img.shields.io/badge/%E2%9A%99%EF%B8%8F%20Run%20locally-22D3EE?style=for-the-badge&logo=python&logoColor=white&labelColor=07091a" alt="Run locally"/>
   </a>
   &nbsp;
   <a href="docs/screenshots/">
-    <img src="https://img.shields.io/badge/%F0%9F%93%B8%20See%20screenshots-F472B6?style=for-the-badge&labelColor=07091a" alt="See screenshots"/>
+    <img src="https://img.shields.io/badge/%F0%9F%93%B8%20Screenshots-F472B6?style=for-the-badge&labelColor=07091a" alt="See screenshots"/>
   </a>
 </p>
-<p align="center"><sub><em>The dashboard runs locally in two minutes — see <a href="#%EF%B8%8F-running-it-yourself">Running it yourself</a> below. The deploy button spins up your own free Streamlit Cloud copy in one click.</em></sub></p>
+<p align="center"><sub><em>Hosted on Streamlit Community Cloud (free tier — first load can take ~30 s while it wakes up). Prefer your own copy? The Deploy button spins up a fresh one in your account in one click, or run it locally with the steps below.</em></sub></p>
 
 <!-- ─── Badges ─────────────────────────────────────────────────────── -->
 <p align="center">
